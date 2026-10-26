@@ -1,0 +1,84 @@
+{
+  "name": "Assistente de Investimentos - DIO",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assistente-investimentos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2f5a7c1b-01b1-4a72-9b1e-1d6c0f7a1001",
+      "name": "Receber Clientes",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -500,
+        0
+      ],
+      "webhookId": "assistente-investimentos-dio"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Recebe { \"clientes\": [ ... ] } e gera uma recomendação educativa por cliente.\nconst entrada = $input.first().json;\nconst clientes = entrada.body?.clientes ?? entrada.clientes;\n\nif (!Array.isArray(clientes)) {\n  throw new Error('Formato inválido. Envie um JSON com a propriedade \"clientes\" contendo uma lista.');\n}\n\nconst mensagens = {\n  Conservador: \"Seu perfil é conservador. Em geral, vale estudar alternativas que priorizem preservação do capital e menor oscilação, como Tesouro Selic e CDBs com liquidez diária de instituições confiáveis. Compare riscos, taxas, liquidez e proteção do FGC quando aplicável.\",\n  Moderado: \"Seu perfil é moderado. Você pode estudar uma combinação diversificada de alternativas de menor risco com uma parcela de investimentos sujeitos a oscilações, conforme seus objetivos, prazo e tolerância a perdas. Entenda os riscos e custos antes de investir.\",\n  Arrojado: \"Seu perfil é arrojado. Você pode estudar investimentos com maior potencial de retorno e maior volatilidade, como ações e fundos de índice, sempre considerando diversificação, horizonte de longo prazo e a possibilidade de perdas relevantes.\"\n};\n\nreturn clientes.map((cliente, indice) => {\n  const nome = String(cliente.nome ?? '').trim();\n  const email = String(cliente.email ?? '').trim();\n  const perfilOriginal = String(cliente.perfil ?? '').trim();\n  const chavePerfil = perfilOriginal.toLowerCase();\n  const perfis = {\n    conservador: 'Conservador',\n    moderado: 'Moderado',\n    arrojado: 'Arrojado'\n  };\n  const perfil = perfis[chavePerfil] ?? perfilOriginal;\n  const saldoTexto = String(cliente.saldo ?? '').trim();\n  const saldo = Number(saldoTexto.replace(/\\s/g, '').replace(/R\\$/i, '').replace(/\\.(?=\\d{3}(?:\\D|$))/g, '').replace(',', '.'));\n\n  return {\n    json: {\n      nome: nome || `Cliente ${indice + 1}`,\n      email,\n      saldo: Number.isFinite(saldo) ? saldo : cliente.saldo ?? null,\n      perfil: perfil || 'Não informado',\n      mensagem: mensagens[perfil] ?? \"Não foi possível identificar o perfil de investimento. Revise o cadastro do cliente antes de gerar uma mensagem.\",\n      observacao: \"Conteúdo educativo, não é recomendação financeira personalizada.\"\n    }\n  };\n});"
+      },
+      "id": "2f5a7c1b-01b1-4a72-9b1e-1d6c0f7a1002",
+      "name": "Gerar Mensagens por Perfil",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $input.all().map(item => item.json) }}",
+        "options": {}
+      },
+      "id": "2f5a7c1b-01b1-4a72-9b1e-1d6c0f7a1003",
+      "name": "Responder com Resultados",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        80,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Receber Clientes": {
+      "main": [
+        [
+          {
+            "node": "Gerar Mensagens por Perfil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Mensagens por Perfil": {
+      "main": [
+        [
+          {
+            "node": "Responder com Resultados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d21b09a1-6b2c-4f0a-9e8a-123456789001",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
